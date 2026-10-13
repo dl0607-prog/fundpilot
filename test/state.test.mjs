@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {initial,valid,save,read,attempt,complete,wrongIds,nextId,dueIds} from '../dist/state.js';import {lessons} from '../dist/content.js';
+test('真实进度从零开始，刷新读取保存记录',()=>{let value;const storage={getItem:()=>value,setItem:(k,v)=>value=v};const s=initial();assert.equal(Object.keys(s.records).length,0);save(storage,s);assert.deepEqual(read(storage),s);const done=complete(s,0);save(storage,done);assert.equal(nextId(read(storage),lessons.length),12);assert.deepEqual(dueIds(done),[])});
+test('错题按最近一次作答维护，历史保留',()=>{let s=attempt(initial(),0,1,0);assert.deepEqual(wrongIds(s),[0]);s=attempt(s,0,0,0);assert.deepEqual(wrongIds(s),[]);assert.equal(s.attempts.length,2);assert.equal(Object.keys(s.records).length,0)});
+test('复习更新间隔而不增加完成课程数',()=>{let s=complete(initial(),0);const first=new Date(s.records[0].due);s=complete(s,0);assert.equal(Object.keys(s.records).length,1);assert.equal(s.records[0].reviews,1);assert.ok(new Date(s.records[0].due)>first)});
+test('损坏的备份不当作有效记录',()=>{assert.equal(valid({version:1,records:{0:null},attempts:[]}),false);assert.throws(()=>read({getItem:()=>'{broken'}))});
+test('每课有三种讲法、明确自检点与有效自编答案',()=>{for(const l of lessons){assert.equal(l.modes.length,3);assert.ok(l.options.length>=3&&l.options.length<=4);assert.ok(l.options[l.answer]);assert.equal(l.criteria.length,2)}});
+
+test('完成后仍保留真实自述，不能只保存一个完成标记',()=>{const s=initial();s.draft={id:0,text:'收益是不确定的，投资者也会承担风险',checked:[0,1],passed:true,step:3,light:false};const done=complete(s,0);assert.equal(done.records[0].reflection,s.draft.text);assert.deepEqual(done.records[0].checked,[0,1]);assert.equal(done.draft,null)});
